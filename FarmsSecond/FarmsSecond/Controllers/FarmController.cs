@@ -23,17 +23,19 @@ namespace FarmsSecond.Controllers
             {
                 if (!string.IsNullOrEmpty(farm.Name) && !string.IsNullOrEmpty(farm.Description))
                 {
-                    var lastFarm = FarmData.FarmList.Last();
+                    var lastFarm = FarmData.FarmList.LastOrDefault();
+                    if (lastFarm == null)
+                    {
+                        farm.Id = 1;
+                        FarmData.FarmList.Add(farm);
+                        return Json(farm, JsonRequestBehavior.AllowGet);
+                    }
                     farm.Id = lastFarm.Id + 1;
                     FarmData.FarmList.Add(farm);
                     return Json(farm, JsonRequestBehavior.AllowGet);
                 }
-                else
-                {
-                    return Json(false, JsonRequestBehavior.AllowGet);
-                }
+                return Json(false, JsonRequestBehavior.AllowGet);
             }
-
             catch (Exception e)
             {
                 return Json(false, JsonRequestBehavior.AllowGet);
@@ -81,12 +83,15 @@ namespace FarmsSecond.Controllers
         {
             try
             {
-                var foundFarm = FarmData.FarmList.Where(s => s.Id == farm.Id).FirstOrDefault();
-                if (foundFarm != null)
+                if (!string.IsNullOrEmpty(farm.Id.ToString()) && !string.IsNullOrEmpty(farm.Name) && !string.IsNullOrEmpty(farm.Description))
                 {
-                    foundFarm.Name = farm.Name;
-                    foundFarm.Description = farm.Description;
-                    return Json(foundFarm, JsonRequestBehavior.AllowGet);
+                    var foundFarm = FarmData.FarmList.Where(s => s.Id == farm.Id).FirstOrDefault();
+                    if (foundFarm != null)
+                    {
+                        foundFarm.Name = farm.Name;
+                        foundFarm.Description = farm.Description;
+                        return Json(foundFarm, JsonRequestBehavior.AllowGet);
+                    }
                 }
                 return Json(false, JsonRequestBehavior.AllowGet);
             }
@@ -112,8 +117,20 @@ namespace FarmsSecond.Controllers
 
         [HttpGet]
         public JsonResult GetFarmsById(int? farmId)
-        { 
-            return Json(FarmData.FarmList.Where(f => f.Id == farmId).FirstOrDefault(), JsonRequestBehavior.AllowGet);
+        {
+            try
+            {
+                var Farm = FarmData.FarmList.Where(f => f.Id == farmId).FirstOrDefault();
+                if(Farm != null)
+                {
+                    return Json(Farm, JsonRequestBehavior.AllowGet);
+                }
+                return Json(false, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception e)
+            {
+                return Json(false, JsonRequestBehavior.AllowGet);
+            }
         }
     }
 }

@@ -176,10 +176,16 @@
     <Compile Include="Areas\HelpPage\SampleGeneration\SampleDirection.cs" />
     <Compile Include="Areas\HelpPage\SampleGeneration\TextSample.cs" />
     <Compile Include="Areas\HelpPage\XmlDocumentationProvider.cs" />
+    <Compile Include="Controllers\ConditionController.cs" />
     <Compile Include="Controllers\FarmController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
+    <Compile Include="Controllers\ParcelController.cs" />
+    <Compile Include="Controllers\PlantController.cs" />
+    <Compile Include="Controllers\PlantTypeController.cs" />
     <Compile Include="Controllers\ValuesController.cs" />
     <Compile Include="Data\FarmData.cs" />
+    <Compile Include="Data\ParcelData.cs" />
+    <Compile Include="Data\PlantData.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
@@ -243,10 +249,15 @@
     <Content Include="Views\Shared\Error.cshtml" />
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\Farm\Index.cshtml" />
+    <Content Include="Views\Parcel\Index.cshtml" />
+    <Content Include="Views\Parcel\Create.cshtml" />
+    <Content Include="Views\Parcel\Edit.cshtml" />
+    <Content Include="Views\Plant\Index.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
     <Folder Include="Views\Condition\" />
+    <Folder Include="Views\PlantType\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="fonts\glyphicons-halflings-regular.woff" />

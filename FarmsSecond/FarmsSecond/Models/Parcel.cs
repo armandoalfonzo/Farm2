@@ -12,7 +12,6 @@ namespace FarmsSecond.Models
         public string Description { get; set; }
         public int IdFarm { get; set; }
         public List<Observation> Observations { get; set; }
-        public List<int> PlantIds { get; set; }
         public List<int> ConditionIds { get; set; }
     }
 }

@@ -1,0 +1,416 @@
+﻿
+@{
+    ViewBag.Title = "Plants";
+}
+
+<!-- MetisMenu CSS -->
+<link href="/bower_components/metisMenu/dist/metisMenu.min.css" rel="stylesheet">
+<!-- DataTables CSS -->
+<link href="/bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.css" rel="stylesheet">
+<!-- DataTables Responsive CSS -->
+<link href="/bower_components/datatables-responsive/css/dataTables.responsive.css" rel="stylesheet">
+<!-- Custom Fonts -->
+<link href="/bower_components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+<!-- DataTables JavaScript -->
+<script src="/bower_components/datatables/media/js/jquery.dataTables.min.js"></script>
+<script src="/bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js"></script>
+<!-- Summernote -->
+<link href="/bower_components/summernote/css/summernote.css" rel="stylesheet" type="text/css">
+<script src="/bower_components/summernote/js/summernote.min.js"></script>
+<!-- Select JavaScript -->
+<link href="/bower_components/select2/css/select2.min.css" rel="stylesheet" type="text/css">
+<script src="/bower_components/select2/js/select2.min.js"></script>
+
+<style>
+    .Error {
+        border: solid 1px red;
+    }
+</style>
+
+<h2 id="h2Title">Plants</h2>
+
+<script>
+    $(document).ready(function () {
+
+        $summernote = $(".summernote").summernote({
+            height: 150,   //set editable area's height
+            codemirror: { // codemirror options
+                theme: 'monokai'
+            }
+        });
+
+        //<--Event jQuery -->
+        $("#myModal").on('hidden.bs.modal', function () {
+            $("#HiddenIndexDelete").val("");
+            $("#indexId").val("");
+            $("#modalName").val("");
+            $summernote.code("");
+            $("#Add").css("display", "inline");
+            $("#edit").css("display", "none");
+            $("#HiddenId").css("display", "none");
+            $("#titleModel").text("Add new Row to table");
+            $("#modalPlantedDate").val("");
+            $(".HiddenIndex, input[type='date]'").removeClass("Error");
+            $("#myModal p[Class='alert alert-danger']").remove();
+        });
+
+
+        $.urlParam = function (name) {
+            var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+            return results[1] || 0;
+        }
+
+        $("#yesDelete").click(function () {
+            $.ajax({
+                type: "DELETE",
+                url: "http://localhost:55085//Plant/RemovePlant",
+                data: JSON.stringify({ plantId: $("#HiddenIndexDelete").val() }),
+                dataType: "json",
+                contentType: 'application/json; charset=utf-8',
+                success: function (data) {
+                    if (data) {
+                        $table.row($("#indexId").val()).remove().draw();
+                    }
+
+                    else {
+                        ValidateMyAlert("Class='alert alert-warning'", ' Could not delete ', 'Warning', "#alertContainer");
+                    }
+                },
+                error: function () {
+                    ValidateMyAlert("Class='alert alert-danger'", 'error', 'Danger', "#alertContainer");
+                }
+            });
+            $("#closeDeleteModal").click();
+        })
+
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:55085/PlantType/GetAllPlantTypes",
+            data: "",
+            dataType: "json",
+            contentType: 'application/json; charset=utf-8',
+            success: function (data) {
+                $.each(data, function () {
+                    $("#selectPlantType").append("<option value=" + this.Id + ">" + this.Name + "</option>");
+                });
+            }
+        });
+
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:55085/Parcel/GetParcel",
+            data: { parcelId: $.urlParam("parcelId") },
+            dataType: "json",
+            contentType: 'application/json; charset=utf-8',
+            success: function (data) {
+                $("#h2Title").text("Plant - " + data.Description);
+            },
+            error: function () {
+                ValidateMyAlert("Class='alert alert-danger'", 'error', 'Danger', "#alertContainer");
+            }
+        });
+
+        $.ajaxSetup({ async: false });
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:55085/Plant/GetAllPlantsByParcelId",
+            data: { parcelId: $.urlParam("parcelId") },
+            dataType: "json",
+            contentType: 'application/json; charset=utf-8',
+            success: function (data) {
+                var Data = [];
+                $.each(data , function () {
+                    var obj = {
+                        Id: this.Id,
+                        Name: this.Name,
+                        Description: this.Description,
+                        PlantedDate: this.PlantedDate,
+                        PlantType: getPlantType(this.PlantType)
+                    }
+                    Data.push(obj);
+                })
+                $table = $('#myDT').DataTable({
+                    responsive: true,
+                    "data": Data,
+                    "columns": [
+                        { "data": "Id" },
+                        { "data": "Name" },
+                        { "data": "Description" },
+                        { "data": "PlantedDate" },
+                        { "data": "PlantType"},
+                        {"defaultContent": "<button type=\"button\" data-toggle='modal' data-target='#DeleteModal' class=\"glyphicon glyphicon-trash\" onclick = \"removeRow(this)\"></button>" +
+                            "<button type=\"button\" data-toggle='modal' data-target='#myModal' onclick =\"editRow(this)\" class = \"glyphicon glyphicon-pencil\"></button>"
+                        }
+                    ],
+                    "columnDefs": [
+                        { "targets": [5], "orderable": false }
+                    ]
+                });
+            },
+           error: function () {
+                ValidateMyAlert("Class='alert alert-danger'", 'error', 'Danger', "#alertContainer");
+            }
+        });
+    });
+
+    function getPlantType(numType){
+        var type = "";
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:55085/PlantType/GetAllPlantTypes",
+            data: "",
+            dataType: "json",
+            contentType: 'application/json; charset=utf-8',
+            success: function (data) {
+                $.each(data, function () {
+                    if (this.Id == numType) {
+                        type = this.Name;
+                    }
+                });
+            }
+        });
+        return type;
+    }
+
+
+    function AddPlant() {
+        if (validateMyModal()) {
+            console.log($("#selectPlantType").val());
+            $.ajaxSetup({ async: false });
+            $.ajax({
+                type: "POST",
+                url: "http://localhost:55085/Plant/AddPlant",
+                data: JSON.stringify({
+                    Name: $("#modalName").val(),
+                    Description: $summernote.code(),
+                    PlantedDate: $("#modalPlantedDate").val(),
+                    IdParcel: $.urlParam("parcelId"),
+                    PlantType: $("#selectPlantType").val()
+                }),
+                dataType: "json",
+                contentType: 'application/json; charset=utf-8',
+                success: function (data) {
+                    if (data) {
+                        var obj = {
+                            Id:data.Id,
+                            Name:data.Name,
+                            Description:data.Description,
+                            PlantedDate:data.PlantedDate,
+                            PlantType: getPlantType(data.PlantType)
+                        }
+                        $table.row.add(obj).draw();
+                        $("#closeMyModal").click();
+                    }
+                    else {
+                        ValidateMyAlert("Class='alert alert-warning'", 'Could not be added', 'Warning', "#alertContainer");
+                    }
+                },
+                error: function () {
+                    ValidateMyAlert("Class='alert alert-danger'", 'error', 'Danger', "#alertContainer");
+                }
+            });
+        }
+    }
+
+    function removeRow(button) {
+        var actualRow = $(button).parents("tr");
+        var rowIndex = $table.row(actualRow).index();
+        var row = $table.row(rowIndex).data();
+        $("#HiddenIndexDelete").val(row.Id);
+        $("#indexId").val(rowIndex)
+    }
+
+    function editRow(button) {
+
+        $("#Add").css("display", "none");
+        $("#edit").css("display", "inline");
+        $("#HiddenId").css("display", "inline");
+        $("#titleModel").text("Edit Row");
+        var ActualRow = $(button).parents("tr");
+        var rowIndex = $table.row(ActualRow).index();
+        var row = $table.row(rowIndex).data();
+        $("#plantId").val(row.Id);
+        $("#modalName").val(row.Name);
+        $summernote.code(row.Description);
+        $("#modalPlantedDate").val(row.PlantedDate);
+        $("#selectPlantType option").each(function () { this.selected = (this.text == row.PlantType); });
+        $("#indexId").val(rowIndex);
+    }
+
+    function editFarmBotton() {
+        if (validateMyModal()) {
+            $.ajaxSetup({ async: false });
+            $.ajax({
+                type: "PUT",
+                url: " http://localhost:55085/Plant/UpdatePlant",
+                data: JSON.stringify({
+                    Id: $("#plantId").val(),
+                    Name: $("#modalName").val(),
+                    Description: $summernote.code(),
+                    PlantedDate: $("#modalPlantedDate").val(),
+                    IdParcel: $.urlParam("parcelId"),
+                    PlantType:$("#selectPlantType").val()
+                }),
+                dataType: "json",
+                contentType: 'application/json; charset=utf-8',
+                success: function (data) {
+                    if (data) {
+                        var obj = {
+                            Id: data.Id,
+                            Name: data.Name,
+                            Description: data.Description,
+                            PlantedDate: data.PlantedDate,
+                            PlantType: getPlantType(data.PlantType)
+                        }
+                        console.log(obj.PlantType);
+                        $table.row($("#indexId").val()).data(obj).draw();
+                        $("#closeMyModal").click();
+                    }
+                    else {
+                        ValidateMyAlert("Class='alert alert-warning'", 'Something is wrong', 'Warning', "#alertContainer");
+                    }
+                },
+                error: function () {
+                    ValidateMyAlert("Class='alert alert-danger'", 'Error whith edit', 'Danger', "#alertContainer");
+                }
+            });
+        }
+    }
+
+    //Validations
+    function ValidateMyAlert(pClass, pString, tMessege, insertSide) {
+        if (!$("p[" + pClass + "]").length) {
+            $(insertSide).prepend("<p " + pClass + "><strong>" + tMessege + "</strong> " + pString + " </p>");
+        }
+        else {
+            $("p["+pClass+ "]").remove();
+            $(insertSide).prepend("<p " + pClass + "><strong>" + tMessege + "</strong> " + pString + " </p>");
+        }
+    }
+
+    function validateMyModal() {
+        var cellEmty = true;
+        if ($(".HiddenIndex").val().trim() == "") {
+            $(".HiddenIndex").addClass("Error");
+            ValidateMyAlert("Class='alert alert-danger'", 'name is Required', 'Warning', "#myModal");
+            cellEmty = false;
+        }
+        else { $(".HiddenIndex").removeClass("Error"); }
+
+        if ($summernote.code() == "" || $summernote.code() == "<p><br></p>") {
+            ValidateMyAlert("Class='alert alert-danger'", 'Description is Required', 'Warning', "#myModal");
+            cellEmty = false;
+        }
+
+        if ($("input[type='date']").val().trim() == "") {
+            $("input[type='date']").addClass("Error");
+            ValidateMyAlert("Class='alert alert-danger'", 'Date is Required', 'Warning', "#myModal");
+            cellEmty = false;
+        }
+        else { $("input[type='date']").removeClass("Error");}
+
+        return cellEmty;
+    }
+
+</script>
+
+<div id="alertContainer"> </div>
+
+<div class="panel-heading">
+    DataTable Advanced Table |
+    <button type="button" class="glyphicon glyphicon-plus" data-toggle="modal" data-target="#myModal"></button>
+</div>
+<table id="myDT" class="table">
+    <thead>
+        <tr>
+            <th>
+                <label>Id</label>
+            </th>
+            <th>
+                <label>Name</label>
+            </th>
+            <th>
+                <label>Description</label>
+            </th>
+            <th>
+                <label>Planted Date</label>
+            </th>
+            <th>
+                <label>Plant type</label>
+            </th>
+            <th>
+                <label>Buttons</label>
+            </th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- Modal -->
+<div id="myModal" class="modal fade" role="dialog">
+
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" id="titleModel">Add new Row to table</h4>
+            </div>
+
+            <div class="modal-body">
+
+                <div style="display:none" id="HiddenId">
+                    <label for="qwe"> Id</label><br>
+                    <input type="text" class=" form-control HiddenIndexx" id="plantId" disabled> </input><br>
+                </div>
+                <div class="form-group">
+                    <label for="usr">Name:</label><br>
+                    <input type="text" class="form-control HiddenIndex" id="modalName"> </input><br>
+                </div>
+                <div class="form-group">
+                    <label for="asd">Description:</label><br>
+                    <textarea id="summernoteId " class="summernote"></textarea><br>
+                </div>
+                <div class="form-group">
+                    <label for="usr">Planted Date:</label><br>
+                    <input type="date" class="form-control " id="modalPlantedDate"> </input><br>
+                </div>
+                <div class="form-group">
+                    <label for="usr">Plant Type:</label><br>
+                    <select id="selectPlantType" class="form-control"> </select>
+                </div>
+                <input type="text" class=" form-control HiddenIndexx" style="display:none" id="indexId"> </input><br>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal" id="closeMyModal">Close</button>
+                    <button type="button" class="btn btn-default" id="Add" onclick="AddPlant()">Add</button>
+                    <button type="button" class="btn btn-default" id="edit" onclick="editFarmBotton()" style="display:none">Edit</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="DeleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="titleModelDelete">Delete</h4>
+            </div>
+            <div id="rowModalBody" class="modal-body">
+                <label for="usr">Are you sure you want to delete a row</label><br>
+                <button type="button" class="btn btn-default" id="yesDelete">yes</button>
+                <button type="button" class="btn btn-default" id="noDelete" data-dismiss="modal">No</button>
+                <input type="text" class="HiddenIndexx" id="HiddenIndexDelete" style="display:none"> </input>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" id="closeDeleteModal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

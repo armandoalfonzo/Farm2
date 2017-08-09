@@ -1,0 +1,372 @@
+﻿
+@{
+    ViewBag.Title = "Edit";
+}
+
+<!-- DataTables JavaScript -->
+<script src="/bower_components/datatables/media/js/jquery.dataTables.min.js"></script>
+<script src="/bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js"></script>
+<!-- Select JavaScript -->
+<link href="/bower_components/select2/css/select2.min.css" rel="stylesheet" type="text/css">
+<script src="/bower_components/select2/js/select2.min.js"></script>
+<!-- Summernote -->
+<link href="/bower_components/summernote/css/summernote.css" rel="stylesheet" type="text/css">
+<script src="/bower_components/summernote/js/summernote.min.js"></script>
+<!-- Custom Fonts -->
+<link href="/bower_components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+<h2>Edit</h2>
+
+<script>
+
+    $(document).ready(function () {
+
+        //<!--DataTables  Initialization -- >
+        $table = $("#datatable").DataTable({
+            responsive: true,
+            "columns": [
+                { "data": "Description" },
+                {
+                    "defaultContent": "<button type=\"button\"  data-toggle='modal' data-target='#DeleteModal' class=\"glyphicon glyphicon-trash\" onclick = \"removeRow(this)\"></button> " +
+                    "<button type=\"button\" data-toggle=\"modal\" data-target=\"#myModal\" onclick =\"editRow(this)\" class = \"glyphicon glyphicon-pencil\">"
+                }
+            ],
+            "columnDefs": [{
+                "targets": [1],
+                "orderable": false
+            }]
+        });
+
+        //<!--Select Initialization --
+        $("#selectConditions").select2({
+            placeholder: "Select a Conditions",
+            allowClear: true
+        });
+
+        $summernote = $("#summernoteId").summernote({
+            height: 150,   //set editable area's height
+            codemirror: { // codemirror options
+                theme: 'monokai'
+            }
+        });
+
+        $summernoteModal = $("#summernoteModal").summernote({
+            height: 150,   //set editable area's height
+            codemirror: { // codemirror options
+                theme: 'monokai'
+            }
+        });
+
+        //<--Event jQuery -->
+        $.urlParam = function (name) {
+            var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+            return results[1] || 0;
+        }
+
+        $("#btnSave").click(function () {
+            EditParcel();
+        });
+
+        $("#myModal").on('hidden.bs.modal', function () {
+            $summernoteModal.code("");
+            $("#myModal p[Class='alert alert-danger']").remove();
+        });
+
+        $("#yesDelete").click(function () {
+
+            $table.row($("#HiddenIndexDelete").val()).remove().draw();
+
+            var tableLength = $table.data().length;
+            if (tableLength == 0) {
+                $("#btnSave").prop("disabled", true);
+                $("#alertTable").css("display", "inline");
+            }
+            $("#closeDeleteModal").click();
+        });
+
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:55085/Condition/GetAllConditions",
+            data: "",
+            dataType: "json",
+            contentType: 'application/json; charset=utf-8',
+            success: function (data) {
+                $.each(data, function () {
+                    $("#selectConditions").append("<option value=" + this.Id + ">" + this.Name + "</option>");
+                });
+            },
+
+            error: function () {
+                ValidateMyAlert("Class='alert alert-danger'", 'error', 'Danger', "#alertContainer");
+            }
+
+        });
+
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:55085/Parcel/GetParcel",
+            data: { parcelId: $.urlParam("parcelId") },
+            dataType: "json",
+            contentType: 'application/json; charset=utf-8',
+            success: function (data) {
+
+                $("#inputSize").val(data.Size);
+                $summernote.code(data.Description);
+                $("#selectConditions").val(data.ConditionIds).trigger('change');
+
+                $.each(data.Observations, function () {
+                    var Data = {
+                        Description: this.Description
+                    };
+                    $table.row.add(Data).draw();
+                });
+            }
+        });
+    });
+
+        function AddObservation() {
+            if (validateMyModal()) {
+                var Data = {
+                    Description: $summernoteModal.code(),
+                };
+                $table.row.add(Data).draw();
+                $("#closeMyModal").click(); //Cerrar modal
+                $("#btnSave").prop("disabled", false);
+                $("#alertTable").css("display", "none");
+            }
+        }
+
+        function removeRow(button) {
+            var ActualRow = $(button).parents("tr");
+            var rowIndex = $table.row(ActualRow).index();
+            $("#HiddenIndexDelete").val(rowIndex);
+        }
+
+        function editRow(button) {
+            $("#Add").css("display", "none");
+            $("#edit").css("display", "inline");
+            $("#titleModel").text("Edit");
+            var ActualRow = $(button).parents("tr");
+            var rowIndex = $table.row(ActualRow).index();
+            var row = $table.row(rowIndex).data();
+            $summernoteModal.code(row.Description);
+            $("#HiddenIndex").val(rowIndex);
+        }
+
+        function editObservation() {
+            if (validateMyModal()) {
+                var Data = {
+                    Description: $summernoteModal.code(),
+                };
+                $table.row($("#HiddenIndex").val()).data(Data).draw();
+                $("#Add").css("display", "inline");
+                $("#edit").css("display", "none");
+                $("#titleModel").text("Add new Row to table");
+                $("#closeMyModal").click();
+            }
+        }
+
+        function EditParcel() {
+            if (validateMyForm()) {
+                var ObservationsList = [];
+                $("tbody tr").each(function () {
+                    var rowIndex = $table.row(this).index();
+                    var row = $table.row(rowIndex).data();
+                    var obj = { Description: row.Description }
+                    ObservationsList.push(obj);
+                });
+                $.ajax({
+                    type: "PUT",
+                    url: "http://localhost:55085/Parcel/UpdateParcel",
+                    data: JSON.stringify({
+                        Id: $.urlParam("parcelId"),
+                        Size: $("#inputSize").val(),
+                        Description: $summernote.code(),
+                        IdFarm: $.urlParam("farmId"),
+                        Observations: ObservationsList,
+                        PublicationYear: $("#PublicationYear").val(),
+                        ConditionIds: $("#selectConditions").val()
+                    }),
+                    dataType: "json",
+                    contentType: 'application/json; charset=utf-8',
+                    success: function (data) {
+                        if (data) {
+                            window.location.replace('http://localhost:55085/Parcel?farmId=' + $.urlParam("farmId"));
+                        }
+                        else {
+                            ValidateMyAlert("Class='alert alert-danger'", 'data is false', 'Warning', "#alertContainer");
+                        }
+                    },
+                    error: function () {
+                        ValidateMyAlert("Class='alert alert-danger'", 'Error', 'Danger', "#alertContainer");
+                    }
+                });
+            }
+        }
+
+    //Validations
+    function ValidateMyAlert(pClass, pString, tMessege, insertSide) {
+        if (!$("p[" + pClass + "]").length) {
+            $(insertSide).prepend("<p " + pClass + "><strong>" + tMessege + "</strong> " + pString + " </p>");
+        }
+        else {
+            $("p[" + pClass + "]").remove();
+            $(insertSide).prepend("<p " + pClass + "><strong>" + tMessege + "</strong> " + pString + " </p>");
+        }
+    }
+
+    function validateMyModal() {
+        var cellEmty = true;
+        if ($summernoteModal.code() === "" || $summernoteModal.code() === "<p><br></p>") {
+            ValidateMyAlert("Class='alert alert-danger'", 'Description is Required', 'Warning', "#myModal");
+            cellEmty = false;
+        }
+        return cellEmty;
+    }
+
+    function validateMyForm() {
+        var cellEmpty = true;
+        if (!$.isNumeric($("input[type='number']").val()) || $("input[type='number']").val() <= 0) {
+            changeClass($("input[type='number']").parent(), "has-success", "has-error");
+            ValidateMyAlert("Class='alert alert-danger'", 'Size is Required', 'Warning', "#alertContainer");
+            cellEmpty = false;
+        }
+        else { changeClass($("input[type='number']").parent(), "has-error", "has-success"); }
+
+        if ($("select[class='form-control'").val() == null) {
+            changeClass($("select[class='form-control'").parent(), "has-success", "has-error");
+            ValidateMyAlert("Class='alert alert-danger'", 'Conditions is Required', 'Warning', "#alertContainer");
+            cellEmpty = false;
+        }
+        else { changeClass($("select[class='form-control]").parent(), "has-error", "has-success"); }
+
+        if ($summernote.code() === "" || $summernote.code() === "<p><br></p>") {
+            ValidateMyAlert("Class='alert alert-danger'", 'Description is Required', 'Warning', "#alertContainer");
+            cellEmpty = false;
+        }
+
+        return cellEmpty;
+    }
+
+    function changeClass(input, classRemove, classAdd) {
+        input.removeClass(classRemove);
+        input.addClass(classAdd);
+    }
+
+</script>
+
+<div class="form-horizontal">
+
+    <div id="alertContainer"> </div>
+
+    <div class="form-group">
+        <label class="control-label col-md-2">Size</label>
+        <div class="col-md-10">
+            <input type="number" id="inputSize" class="form-control"></input>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label col-md-2">Description</label>
+        <div class="col-md-10">
+            <textarea id="summernoteId" class="summernote"></textarea>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="control-label col-md-2">Conditions</label>
+        <div class="col-md-10">
+            <select id="selectConditions" class="form-control" multiple> </select>
+        </div>
+    </div>
+
+    <div class="panel-heading">
+        Observation |
+        <button type="button" data-toggle="modal" data-target="#myModal" class="glyphicon glyphicon-plus"> </button>
+    </div>
+    <div class="row">
+
+        <div class="col-md-12">
+
+            <!-- Table -->
+            <table id="datatable" class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Buttons</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla2"> </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="form-group">
+        <div id="alertTable" style="display:none">
+            <p Class='alert alert-info'> <strong>info! </strong> You need an observation </p>
+        </div>
+        <div>
+            <input type="button" id="btnSave" value="Edit" class="btn btn-default" />
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" id="titleModel">Add new Row to table</h4>
+            </div>
+
+            <div class="modal-body">
+
+                <div class="form-group">
+                    <label class="control-label col-md-2">Description</label>
+                    <div class="col-md-10">
+                        <textarea id="summernoteModal" class="summernote"></textarea>
+                    </div>
+                </div>
+                <input type="text" id="HiddenIndex" style="display:none"> </input>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal" id="closeMyModal">Close</button>
+                    <button type="button" class="btn btn-default" id="Add" onclick="AddObservation()">Add Row</button>
+                    <button type="button" class="btn btn-default" id="edit" onclick="editObservation()" style="display:none">Edit Row</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Eliminar -->
+<div id="DeleteModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" id="titleModelDelete">Delete</h4>
+            </div>
+
+            <div class="modal-body">
+
+                <label for="usr">Are you sure you want to delete a row</label><br>
+                <button type="button" class="btn btn-default" id="yesDelete">yes</button>
+                <input type="text" class="HiddenIndexx" id="HiddenIndexDelete" style="display:none"> </input>
+                <button type="button" class="btn btn-default" id="noDelete" data-dismiss="modal">No</button>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal" id="closeDeleteModal">Close</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
