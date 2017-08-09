@@ -1,0 +1,4 @@
+Farm2/bin/*
+Farm2/obj/*
+*.suo
+packages/*
